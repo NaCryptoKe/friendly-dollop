@@ -3,35 +3,35 @@ import multer from "multer";
 import fs from "fs";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { google } from "googleapis";
-// NOTE: Removed dotenv import as Vercel uses environment variables directly.
-
+import cors from "cors";
+import dotenv from "dotenv";
+dotenv.config();
 const app = express();
-// Using the only writable directory on Vercel's file system
-const upload = multer({ dest: "/tmp" }); 
-// Vercel handles serving static files automatically, but this ensures express can still access them.
-// The Vercel routing takes precedence for the base path.
-// NOTE: Removed path import as it's not strictly needed for this file and Vercel's routing handles 'public'.
-
-// ===== GOOGLE SHEETS SETUP (VERCEL-READY) ======
-const serviceAccountBase64 = process.env.GOOGLE_SERVICE_KEY_BASE64;
-
-if (!serviceAccountBase64) {
-    // This will cause the function to fail early in the Vercel logs if the secret is missing.
-    throw new Error("GOOGLE_SERVICE_KEY_BASE64 env var is not set in Vercel!");
-}
-
-// Decode the Base64 string into a JSON credentials object
-const serviceAccountJson = Buffer.from(serviceAccountBase64, 'base64').toString('utf8');
-const credentials = JSON.parse(serviceAccountJson);
-
+const upload = multer({ dest: "uploads/" });
+app.use(express.static(path.join(process.cwd(), "public")));
+app.use(cors());
+// ===== GOOGLE SHEETS SETUP ======
 const auth = new google.auth.GoogleAuth({
-    credentials, 
+    credentials: {
+        type: "service_account",
+        project_id: process.env.GOOGLE_SERVICE_ACCOUNT_PROJECT_ID,
+        private_key: process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY,
+        client_email: process.env.GOOGLE_SERVICE_ACCOUNT_CLIENT_EMAIL,
+        private_key_id: process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY_ID,
+        auth_uri: process.env.GOOGLE_SERVICE_ACCOUNT_AUTH_URI,
+        token_uri: process.env.GOOGLE_SERVICE_ACCOUNT_TOKEN_URI,
+        auth_provider_x509_cert_url: process.env.GOOGLE_SERVICE_ACCOUNT_AUTH_PROVIDER,
+        client_x509_cert_url: process.env.GOOGLE_SERVICE_ACCOUNT_CLIENT_CERT,
+        universe_domain: process.env.GOOGLE_SERVICE_ACCOUNT_UNIVERSE_DOMAIN,
+        client_id: process.env.GOOGLE_SERVICE_CLIENT_ID,
+    },
     scopes: ["https://www.googleapis.com/auth/spreadsheets"],
 });
-
 const sheets = google.sheets({ version: "v4", auth });
 const spreadsheetId = "1oXGUpRGnxjpd_pVvnaV0O0lHcAc8A2dycslU8mNUvA4";
 const sheetName = "Sheet1";
+console.log("Client Email:", process.env.GOOGLE_SERVICE_ACCOUNT_CLIENT_EMAIL);
+
 
 // ===== GEMINI SETUP =====
 const ai = new GoogleGenerativeAI(process.env.GOOGLE_GENAI_KEY);
@@ -58,13 +58,14 @@ app.post("/upload", upload.single("photo"), async (req, res) => {
         const response = await model.generateContent({ contents });
 
         const text = response.text.trim();
-        // Robust JSON parsing (strips Markdown code block fence)
+
+        // Strip ```json ... ``` if present
         const jsonText = text.replace(/^```json\s*/, "").replace(/```$/, "");
         const parsed = JSON.parse(jsonText);
         
         console.log("Parsed Values:\n", parsed);
 
-        // Generate timestamp
+        // Generate timestamp at upload time
         const now = new Date();
         const formattedDate = now.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
         const formattedTime = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
@@ -89,6 +90,9 @@ app.post("/upload", upload.single("photo"), async (req, res) => {
             message: "Values extracted + logged to spreadsheet!",
             parsed
         });
+
+        // Cleanup
+        fs.unlinkSync(imagePath);
 
     } catch (err) {
         console.error("❌ Error in /upload:", err);
@@ -116,6 +120,4 @@ app.get("/data", async (req, res) => {
     }
 });
 
-// Vercel will handle the incoming HTTP requests and map them to this app instance.
-// We export the app to be consumed by the Vercel Node Runtime.
 export default app;
