@@ -1,2 +1,8 @@
 node_modules/
 .idea/
+
+service-account-key.json
+
+# Local environment variables
+.env
+.env.local

@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Body Metrics Logger</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f4f6f8;
+            margin: 0;
+            padding: 2rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        h1, h2 { color: #333; text-align: center; }
+
+        .card {
+            background-color: #fff;
+            padding: 1.5rem;
+            border-radius: 10px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+            width: 100%;
+            max-width: 700px;
+            margin-bottom: 2rem;
+        }
+
+        /* --- New/Improved File Input Styles --- */
+        input[type="file"] {
+            /* Hide the default browser input */
+            width: 0.1px;
+            height: 0.1px;
+            opacity: 0;
+            overflow: hidden;
+            position: absolute;
+            z-index: -1;
+        }
+
+        .file-label {
+            background-color: #e9ecef;
+            color: #495057;
+            border: 1px solid #ced4da;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            cursor: pointer;
+            display: inline-block;
+            transition: 0.2s;
+            font-weight: 500;
+        }
+        .file-label:hover { background-color: #ddd; }
+
+        .file-name {
+            margin-left: 10px;
+            font-style: italic;
+            color: #666;
+            font-size: 0.9rem;
+        }
+        /* --- End File Input Styles --- */
+
+
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: 0.2s;
+            margin-top: 1rem; /* Added margin-top */
+        }
+
+        button:hover { background-color: #0056b3; }
+
+        /* --- New/Improved Button Disabled State --- */
+        button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+        button:disabled:hover { background-color: #ccc; }
+        /* --- End Button Disabled State --- */
+
+
+        /* --- New/Improved Preview Styles --- */
+        .preview-container {
+            width: 100%;
+            height: 250px; /* Fixed height for consistent layout */
+            border: 2px dashed #ccc;
+            border-radius: 10px;
+            margin-top: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            overflow: hidden;
+            background: #f9f9f9;
+        }
+
+        #previewPlaceholder {
+            color: #aaa;
+            font-weight: bold;
+            font-size: 1.1rem;
+        }
+
+        #photoPreview {
+            display: none; /* Hidden by default */
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain; /* 'contain' fits the whole image */
+        }
+        /* --- End Preview Styles --- */
+
+
+        #uploadResult {
+            margin-top: 1rem;
+            font-weight: bold;
+        }
+
+        /* --- Toast Styles (Unchanged) --- */
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: #333;
+            color: white;
+            padding: 1rem 1.5rem;
+            border-radius: 8px;
+            opacity: 0;
+            pointer-events: none;
+            transition: 0.3s;
+            z-index: 1000;
+        }
+        .toast.show {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        /* --- Table Styles (Unchanged) --- */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 1rem;
+            font-size: 0.95rem;
+            text-align: center;
+        }
+        th, td { border: 1px solid #ddd; padding: 0.5rem; }
+        th {
+            background-color: #007bff;
+            color: white;
+            position: sticky;
+            top: 0;
+        }
+        tbody tr:nth-child(even) { background-color: #f9f9f9; }
+        tbody tr:hover { background-color: #e6f2ff; }
+        .table-container {
+            width: 100%;
+            max-width: 900px;
+            overflow-x: auto;
+            border-radius: 10px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+            background-color: #fff;
+            padding: 1rem;
+        }
+    </style>
+</head>
+<body>
+
+<h1>Body Metrics Logger</h1>
+
+<div class="card">
+    <h2>Upload Photo</h2>
+
+    <label for="photoInput" class="file-label">Choose a photo...</label>
+    <input type="file" id="photoInput" accept="image/*">
+    <span class="file-name" id="fileName">No file chosen</span>
+
+    <div class="preview-container">
+        <span id="previewPlaceholder">Image Preview</span>
+        <img id="photoPreview" src="" alt="Photo Preview">
+    </div>
+
+    <button id="uploadBtn" disabled>Upload</button>
+    <div id="uploadResult"></div>
+</div>
+
+<div class="card table-container">
+    <h2>Logged Data</h2>
+    <table id="dataTable">
+        <thead></thead>
+        <tbody></tbody>
+    </table>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script>
+    // --- Get all new and old elements ---
+    const uploadBtn = document.getElementById('uploadBtn');
+    const photoInput = document.getElementById('photoInput');
+    const uploadResult = document.getElementById('uploadResult');
+    const photoPreview = document.getElementById('photoPreview');
+    const previewPlaceholder = document.getElementById('previewPlaceholder');
+    const fileName = document.getElementById('fileName');
+    const dataTable = document.getElementById('dataTable');
+    const thead = dataTable.querySelector('thead');
+    const tbody = dataTable.querySelector('tbody');
+    const toast = document.getElementById('toast');
+
+    // --- Toast Function (Unchanged) ---
+    function showToast(message, success = true) {
+        toast.textContent = message;
+        toast.style.backgroundColor = success ? '#28a745' : '#dc3545';
+        toast.classList.add('show');
+        setTimeout(() => toast.classList.remove('show'), 3000);
+    }
+
+    // --- Fetch Function (Unchanged) ---
+    async function fetchData() {
+        try {
+            const res = await fetch("/data");
+            const data = await res.json();
+            if (!data.rows || !data.rows.length) return;
+
+            thead.innerHTML = "";
+            tbody.innerHTML = "";
+            const headerRow = data.rows[0];
+            const trHead = document.createElement("tr");
+            headerRow.forEach(cell => {
+                const th = document.createElement("th");
+                th.textContent = cell;
+                trHead.appendChild(th);
+            });
+            thead.appendChild(trHead);
+
+            data.rows.slice(1).forEach(row => {
+                const tr = document.createElement("tr");
+                row.forEach(cell => {
+                    const td = document.createElement("td");
+                    td.textContent = cell;
+                    tr.appendChild(td);
+                });
+                tbody.appendChild(tr);
+            });
+        } catch (err) {
+            console.error("Failed to fetch data:", err);
+        }
+    }
+
+    // --- Data Fetching Interval (Unchanged) ---
+    setInterval(fetchData, 5000);
+    fetchData(); // initial load
+
+    // --- *** NEW: File Input 'change' listener for instant preview *** ---
+    photoInput.addEventListener('change', () => {
+        if (photoInput.files.length > 0) {
+            const file = photoInput.files[0];
+
+            // Show file name
+            fileName.textContent = file.name;
+
+            // Show preview
+            photoPreview.src = URL.createObjectURL(file);
+            photoPreview.style.display = 'block';
+            previewPlaceholder.style.display = 'none'; // Hide placeholder text
+
+            // Enable upload button
+            uploadBtn.disabled = false;
+
+            // Clear old upload result
+            uploadResult.textContent = "";
+
+        } else {
+            // Reset if no file is selected (e.g., user hits 'cancel')
+            fileName.textContent = "No file chosen";
+            photoPreview.src = "";
+            photoPreview.style.display = 'none';
+            previewPlaceholder.style.display = 'block';
+            uploadBtn.disabled = true;
+        }
+    });
+
+
+    // --- *** MODIFIED: Upload Button 'click' listener *** ---
+    uploadBtn.addEventListener('click', async () => {
+        // File check is still good
+        if (!photoInput.files.length) return alert("Please select a photo.");
+
+        const formData = new FormData();
+        const file = photoInput.files[0];
+        formData.append("photo", file);
+
+        // --- Preview logic removed from here ---
+
+        uploadResult.textContent = "Uploading...";
+        // --- Disable button during upload ---
+        uploadBtn.disabled = true;
+        uploadBtn.textContent = "Uploading...";
+
+        try {
+            const res = await fetch("/upload", {
+                method: "POST",
+                body: formData
+            });
+            const data = await res.json();
+            if (res.ok) {
+                uploadResult.textContent = "Upload successful!";
+                showToast("Upload successful!", true);
+                fetchData(); // refresh table immediately
+
+                // --- NEW: Reset form on success ---
+                photoInput.value = null; // Clear the file input
+                fileName.textContent = "No file chosen";
+                photoPreview.src = "";
+                photoPreview.style.display = 'none';
+                previewPlaceholder.style.display = 'block';
+                uploadBtn.disabled = true; // Stays disabled until new file
+                uploadResult.textContent = ""; // Clear status
+
+            } else {
+                uploadResult.textContent = "Upload failed: " + data.error;
+                showToast("Upload failed: " + data.error, false);
+            }
+        } catch (err) {
+            uploadResult.textContent = "Upload failed: " + err;
+            showToast("Upload failed: " + err, false);
+        } finally {
+            // --- Re-enable button ONLY if it didn't succeed and reset text ---
+            // (If it succeeded, it will be disabled from the 'if (res.ok)' block)
+            if (!uploadBtn.disabled) {
+                uploadBtn.disabled = false;
+            }
+            // Only reset text if it hasn't been reset by success
+            if (uploadBtn.textContent === "Uploading...") {
+                uploadBtn.textContent = "Upload";
+            }
+        }
+    });
+</script>
+
+</body>
+</html>

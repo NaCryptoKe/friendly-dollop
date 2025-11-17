@@ -1,12 +1,19 @@
 {
   "dependencies": {
+    "@google/genai": "^1.29.1",
+    "@google/generative-ai": "^0.24.1",
+    "body-parser": "^2.2.0",
+    "dotenv": "^17.2.3",
+    "express": "^5.1.0",
     "googleapis": "^166.0.0",
-    "http-server": "^14.1.1"
+    "http-server": "^14.1.1",
+    "multer": "^2.0.2",
+    "nodemon": "^3.1.11"
   },
   "name": "bodycomposition",
   "version": "1.0.0",
   "description": "",
-  "main": "appendData.js",
+  "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
