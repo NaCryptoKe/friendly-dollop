@@ -123,8 +123,4 @@ app.get("/data", async (req, res) => {
     }
 });
 
-// Use Vercel's default port or 3000 for local
-const port = process.env.PORT || 3000;
-app.listen(port, () => {
-    console.log(`🔥 Server running on http://localhost:${port}`);
-});
+export default app;
