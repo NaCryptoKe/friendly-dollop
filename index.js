@@ -4,34 +4,35 @@ import fs from "fs";
 import path from "path";
 import { GoogleGenAI } from "@google/genai";
 import { google } from "googleapis";
+import cors from "cors";
 import dotenv from "dotenv";
 dotenv.config();
-
 const app = express();
-// --- FIX 1: Use /tmp directory for Multer ---
-const upload = multer({ dest: "/tmp" });
+const upload = multer({ dest: "uploads/" });
 app.use(express.static(path.join(process.cwd(), "public")));
-
-// ===== GOOGLE SHEETS SETUP (VERCEL-READY) ======
-// 1. Get the Base64 string from environment variables
-const serviceAccountBase64 = process.env.GOOGLE_SERVICE_KEY_BASE64;
-if (!serviceAccountBase64) {
-    throw new Error("GOOGLE_SERVICE_KEY_BASE64 env var is not set!");
-}
-// 2. Decode the Base64 string into a JSON string
-const serviceAccountJson = Buffer.from(serviceAccountBase64, 'base64').toString('utf8');
-// 3. Parse the JSON string into an object
-const credentials = JSON.parse(serviceAccountJson);
-
-// 4. Use the credentials object instead of keyFile
+app.use(cors());
+// ===== GOOGLE SHEETS SETUP ======
 const auth = new google.auth.GoogleAuth({
-    credentials,
+    credentials: {
+        type: "service_account",
+        project_id: process.env.GOOGLE_SERVICE_ACCOUNT_PROJECT_ID,
+        private_key: process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY,
+        client_email: process.env.GOOGLE_SERVICE_ACCOUNT_CLIENT_EMAIL,
+        private_key_id: process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY_ID,
+        auth_uri: process.env.GOOGLE_SERVICE_ACCOUNT_AUTH_URI,
+        token_uri: process.env.GOOGLE_SERVICE_ACCOUNT_TOKEN_URI,
+        auth_provider_x509_cert_url: process.env.GOOGLE_SERVICE_ACCOUNT_AUTH_PROVIDER,
+        client_x509_cert_url: process.env.GOOGLE_SERVICE_ACCOUNT_CLIENT_CERT,
+        universe_domain: process.env.GOOGLE_SERVICE_ACCOUNT_UNIVERSE_DOMAIN,
+        client_id: process.env.GOOGLE_SERVICE_CLIENT_ID,
+    },
     scopes: ["https://www.googleapis.com/auth/spreadsheets"],
 });
-
 const sheets = google.sheets({ version: "v4", auth });
 const spreadsheetId = "1oXGUpRGnxjpd_pVvnaV0O0lHcAc8A2dycslU8mNUvA4";
 const sheetName = "Sheet1";
+console.log("Client Email:", process.env.GOOGLE_SERVICE_ACCOUNT_CLIENT_EMAIL);
+
 
 // ===== GEMINI SETUP =====
 const ai = new GoogleGenAI({ apiKey: process.env.GOOGLE_GENAI_KEY });
@@ -53,10 +54,13 @@ app.post("/upload", upload.single("photo"), async (req, res) => {
         });
 
         const text = response.text.trim();
+
+        // Strip ```json ... ``` if present
         const jsonText = text.replace(/^```json\s*/, "").replace(/```$/, "");
         const parsed = JSON.parse(jsonText);
         console.log("Parsed Values:\n", parsed);
 
+        // Generate timestamp at upload time
         const now = new Date();
         const formattedDate = now.toLocaleDateString('en-US', {
             month: 'short',
@@ -69,6 +73,7 @@ app.post("/upload", upload.single("photo"), async (req, res) => {
             hour12: false
         });
 
+        // Create row for Sheets
         const row = [
             formattedDate,
             formattedTime,
@@ -85,6 +90,7 @@ app.post("/upload", upload.single("photo"), async (req, res) => {
             parsed.bmr
         ];
 
+        // Append to Google Sheets
         await sheets.spreadsheets.values.append({
             spreadsheetId,
             range: sheetName,
@@ -100,6 +106,7 @@ app.post("/upload", upload.single("photo"), async (req, res) => {
             parsed
         });
 
+        // Cleanup
         fs.unlinkSync(imagePath);
 
     } catch (err) {
@@ -123,8 +130,4 @@ app.get("/data", async (req, res) => {
     }
 });
 
-// Use Vercel's default port or 3000 for local
-const port = process.env.PORT || 3000;
-app.listen(port, () => {
-    console.log(`🔥 Server running on http://localhost:${port}`);
-});
+export default app;
