@@ -1,0 +1,15 @@
+{
+  "dependencies": {
+    "googleapis": "^166.0.0",
+    "http-server": "^14.1.1"
+  },
+  "name": "bodycomposition",
+  "version": "1.0.0",
+  "description": "",
+  "main": "appendData.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC"
+}
